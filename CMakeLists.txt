@@ -14,8 +14,8 @@
 
 cmake_minimum_required(VERSION 3.10)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-set(PADDLE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(PADDLE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(PADDLE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "")
+set(PADDLE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE INTERNAL "")
 
 include(system)
 
@@ -23,6 +23,8 @@ project(paddle CXX C)
 
 include(init)
 include(generic)            # simplify cmake module
+
+set(LINK_FLAGS "-flto -Wl,--version-script ${CMAKE_CURRENT_SOURCE_DIR}/cmake/export.map" CACHE INTERNAL "")
 
 # enable language CUDA
 # TODO(Shibo Tao): remove find_package(CUDA) completely.
