@@ -20,6 +20,7 @@ limitations under the License. */
 #ifdef PADDLE_WITH_MKLDNN
 #include "paddle/fluid/platform/mkldnn_helper.h"
 #endif
+//#include "paddle/fluid/framework/stats.h"
 
 namespace paddle {
 namespace operators {
@@ -60,6 +61,9 @@ template <typename DeviceContext, typename T>
 class MatMulKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext &context) const override {
+    //auto *benchmark_stats = stats::Stats::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto &x = GET_DATA_SAFELY(context.Input<framework::Tensor>("X"), "Input",
                               "X", "MatMul");
     auto &y = GET_DATA_SAFELY(context.Input<framework::Tensor>("Y"), "Input",
@@ -100,6 +104,8 @@ class MatMulKernel : public framework::OpKernel<T> {
 #else
     blas.MatMul(x, mat_dim_a, y, mat_dim_b, scale, out, T(0));
 #endif
+
+    //benchmark_stats->StopRun();
   }
 };
 

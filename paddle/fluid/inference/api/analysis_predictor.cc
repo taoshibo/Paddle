@@ -40,6 +40,7 @@
 #include "paddle/fluid/platform/gpu_info.h"
 #include "paddle/fluid/platform/place.h"
 #include "paddle/fluid/platform/profiler.h"
+//#include "paddle/fluid/framework/stats.h"
 
 #ifdef PADDLE_WITH_MKLML
 #include "paddle/fluid/platform/dynload/mklml.h"
@@ -1141,6 +1142,8 @@ std::vector<std::string> Predictor::GetOutputNames() {
 }
 
 std::unique_ptr<Tensor> Predictor::GetOutputHandle(const std::string &name) {
+  //auto *benchmark_stats = stats::Stats::getBenchmarkStats();
+  //benchmark_stats->Summarize();
   auto zero_copy_tensor = predictor_->GetOutputTensor(name);
   std::unique_ptr<Tensor> tensor(new Tensor(std::move(zero_copy_tensor)));
   return tensor;

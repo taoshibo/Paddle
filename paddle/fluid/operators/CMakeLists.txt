@@ -1,4 +1,5 @@
 include(operators)
+include_directories("${PADDLE_BINARY_DIR}/third_party/cinn/cinn/include")
 
 # clean cache and pybind_file content first when rebuild
 unset(GLOB_OP_LIB CACHE)

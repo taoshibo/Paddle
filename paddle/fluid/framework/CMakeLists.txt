@@ -32,7 +32,7 @@ proto_library(data_feed_proto SRCS data_feed.proto)
 proto_library(trainer_desc_proto SRCS trainer_desc.proto DEPS framework_proto
   data_feed_proto)
 
-cc_library(ddim SRCS ddim.cc DEPS eigen3 boost enforce)
+cc_library(ddim SRCS ddim.cc stats.cc DEPS eigen3 boost enforce)
 cc_test(ddim_test SRCS ddim_test.cc DEPS ddim)
 nv_test(dim_test SRCS dim_test.cu DEPS ddim)
 cc_test(unroll_array_ops_test SRCS unroll_array_ops_test.cc)

@@ -27,6 +27,7 @@ limitations under the License. */
 #include "cub/cub.cuh"
 #endif
 #endif
+//#include "paddle/fluid/framework/stats.h"
 
 namespace paddle {
 namespace operators {
@@ -58,6 +59,9 @@ template <typename DeviceContext, typename T>
 class ElementwiseAddKernel : public framework::OpKernel<T> {
  public:
   void Compute(const framework::ExecutionContext &ctx) const override {
+    //auto *benchmark_stats = stats::Stats::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto *x = ctx.Input<framework::LoDTensor>("X");
     auto *y = ctx.Input<framework::LoDTensor>("Y");
     auto *z = ctx.Output<framework::LoDTensor>("Out");
@@ -69,6 +73,8 @@ class ElementwiseAddKernel : public framework::OpKernel<T> {
     } else {
       default_elementwise_add<DeviceContext, T>(ctx, x, y, z);
     }
+
+    //benchmark_stats->StopRun();
   }
 };
 

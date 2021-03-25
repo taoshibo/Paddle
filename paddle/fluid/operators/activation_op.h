@@ -33,6 +33,7 @@ limitations under the License. */
 #ifdef PADDLE_WITH_MKLDNN
 #include "paddle/fluid/platform/mkldnn_helper.h"
 #endif
+//#include "paddle/fluid/framework/stats.h"
 
 namespace paddle {
 namespace operators {
@@ -162,6 +163,9 @@ class ActivationKernel
   using T = typename Functor::ELEMENT_TYPE;
 
   void Compute(const framework::ExecutionContext& context) const override {
+    //auto *benchmark_stats = stats::Stats::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     const framework::Tensor* X = nullptr;
     framework::Tensor* Out = nullptr;
     ExtractActivationTensor(context, &X, &Out);
@@ -187,6 +191,8 @@ class ActivationKernel
     } else {
       functor(*place, x, out);
     }
+
+    //benchmark_stats->StopRun();
   }
 };
 

@@ -4,6 +4,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include "unsupported/Eigen/CXX11/Tensor"
+
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/tensor.h"
 #include "paddle/fluid/framework/ddim.h"
@@ -20,11 +22,13 @@
 #include "paddle/fluid/operators/jit/kernels.h"
 #include "paddle/fluid/platform/transform.h"
 #include "paddle/fluid/operators/math/functors.h"
+#include "paddle/fluid/operators/activation_op.h"
 
 #include "cinn/hlir/framework/buffer.h"
 #include "cinnrt/host_context/kernel_registry.h"
 #include "cinnrt/host_context/kernel_utils.h"
 #include "cinnrt/tensor/dense_host_tensor.h"
+#include "cinnrt/common/global.h"
 
 using Scope = paddle::framework::Scope;
 using VariableNameMap = paddle::framework::VariableNameMap;
@@ -194,6 +198,9 @@ void fc2(const DenseHostTensor &input, DenseHostTensor *w, DenseHostTensor *bias
 
 template<typename T>
 void matmul(const DenseHostTensor &x, const DenseHostTensor &y, DenseHostTensor *z) {
+    //auto *benchmark_stats = cinnrt::Global::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto place = CPUPlace();
     DeviceContextPool::Init({place});
     auto* dev_ctx = DeviceContextPool::Instance().Get(place);
@@ -208,6 +215,8 @@ void matmul(const DenseHostTensor &x, const DenseHostTensor &y, DenseHostTensor 
 
     auto blas = math::GetBlas<CPUDeviceContext, T>(cpu_dev_ctx);
     blas.MatMul(M, N, K, X_data, Y_data, Z_data);
+
+    //benchmark_stats->StopRun();
 }
 
 // vector to string.
@@ -223,6 +232,9 @@ std::string vector2str(std::vector<T> &v) {
 
 template<typename T>
 void elementwise_add(const DenseHostTensor &x, const DenseHostTensor &y, DenseHostTensor *z, Attribute_INT axis/* = -1*/) {
+    //auto *benchmark_stats = cinnrt::Global::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto place = CPUPlace();
     DeviceContextPool::Init({place});
     auto* dev_ctx = DeviceContextPool::Instance().Get(place);
@@ -244,42 +256,83 @@ void elementwise_add(const DenseHostTensor &x, const DenseHostTensor &y, DenseHo
         std::string msg = "ERROR: dims mismatch: " + vector2str(dims_x) + " != " + vector2str(dims_y);
         throw std::logic_error(msg); 
     }
+
+    //benchmark_stats->StopRun();
 }
+
 
 template<typename T>
 void relu(const DenseHostTensor &x, DenseHostTensor *y) {
+    //auto *benchmark_stats = cinnrt::Global::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto place = CPUPlace();
     DeviceContextPool::Init({place});
     auto* dev_ctx = DeviceContextPool::Instance().Get(place);
     auto &cpu_dev_ctx = *reinterpret_cast<const CPUDeviceContext*>(dev_ctx);
 
-    int num_elements = x.shape().GetNumElements();
-    std::vector<int64_t> dims_x;
-    for (int i = 0; i < x.shape().GetRank(); ++i) dims_x.push_back(x.shape().GetDim(i));
-    const T *X_data = reinterpret_cast<T*>(x.buffer()->data()->memory);
+    //std::vector<int64_t> dims_x;
+    //for (int i = 0; i < x.shape().GetRank(); ++i) dims_x.push_back(x.shape().GetDim(i));
+    T *X_data = reinterpret_cast<T*>(x.buffer()->data()->memory);
     T       *Y_data = reinterpret_cast<T*>(y->buffer()->data()->memory);
 
-    Transform<CPUDeviceContext> trans;
-    trans(cpu_dev_ctx, X_data, X_data + num_elements,
-          Y_data, ReluFunctor<T>());
+    // 纯 CPU 计算方式, 无优化
+    //int num_elements = x.shape().GetNumElements();
+    //Transform<CPUDeviceContext> trans;
+    //trans(cpu_dev_ctx, X_data, X_data + num_elements,
+    //      Y_data, ReluFunctor<T>());
+
+    // 用 eigen 实现, 有优化
+    using EigenDSizes = Eigen::DSizes<Eigen::DenseIndex, 1>;
+    using EigenTensorMap = Eigen::TensorMap<Eigen::Tensor<T, 1, Eigen::RowMajor, Eigen::DenseIndex>>;
+
+    EigenDSizes dims;
+    dims[0] = x.shape().GetNumElements();
+    EigenTensorMap X_eigen = EigenTensorMap(X_data, dims);
+    EigenTensorMap Y_eigen = EigenTensorMap(Y_data, dims);
+
+    auto *device = cpu_dev_ctx.eigen_device();
+    paddle::operators::ReluFunctor<T> functor;
+    functor(*device, X_eigen, Y_eigen);
+
+    //benchmark_stats->StopRun();
 }
 
 template<typename T>
 void sigmoid(const DenseHostTensor &x, DenseHostTensor *y) {
+    //auto *benchmark_stats = cinnrt::Global::getBenchmarkStats();
+    //benchmark_stats->StartRun();
+
     auto place = CPUPlace();
     DeviceContextPool::Init({place});
     auto* dev_ctx = DeviceContextPool::Instance().Get(place);
     auto &cpu_dev_ctx = *reinterpret_cast<const CPUDeviceContext*>(dev_ctx);
 
-    int num_elements = x.shape().GetNumElements();
-    std::vector<int64_t> dims_x;
-    for (int i = 0; i < x.shape().GetRank(); ++i) dims_x.push_back(x.shape().GetDim(i));
-    const T *X_data = reinterpret_cast<T*>(x.buffer()->data()->memory);
+    //std::vector<int64_t> dims_x;
+    //for (int i = 0; i < x.shape().GetRank(); ++i) dims_x.push_back(x.shape().GetDim(i));
+    T *X_data = reinterpret_cast<T*>(x.buffer()->data()->memory);
     T       *Y_data = reinterpret_cast<T*>(y->buffer()->data()->memory);
 
-    Transform<CPUDeviceContext> trans;
-    trans(cpu_dev_ctx, X_data, X_data + num_elements,
-          Y_data, SigmoidFunctor<T>());
+    // 纯 CPU 计算方式, 无优化
+    //int num_elements = x.shape().GetNumElements();
+    //Transform<CPUDeviceContext> trans;
+    //trans(cpu_dev_ctx, X_data, X_data + num_elements,
+    //      Y_data, SigmoidFunctor<T>());
+
+    // 用 eigen 实现, 有优化
+    using EigenDSizes = Eigen::DSizes<Eigen::DenseIndex, 1>;
+    using EigenTensorMap = Eigen::TensorMap<Eigen::Tensor<T, 1, Eigen::RowMajor, Eigen::DenseIndex>>;
+
+    EigenDSizes dims;
+    dims[0] = x.shape().GetNumElements();
+    EigenTensorMap X_eigen = EigenTensorMap(X_data, dims);
+    EigenTensorMap Y_eigen = EigenTensorMap(Y_data, dims);
+
+    auto *device = cpu_dev_ctx.eigen_device();
+    paddle::operators::SigmoidFunctor<T> functor;
+    functor(*device, X_eigen, Y_eigen);
+
+    //benchmark_stats->StopRun();
 }
 
 void RegisterPaddleKernels(cinnrt::host_context::KernelRegistry *registry) {
